@@ -11,7 +11,7 @@
 
 ## Contribution Guidelines
 ### Branching conventions
-- Create a branch named feature/<your_name> and then create a pull request describing the changes
+- Create a branch named feature/<your_name_initials>/<feature-description> (eg. - feature/AD/signin-widget)and then create a pull request describing the changes
 - For single file change you can use auto created patch names
 
 ### Github CI/CD
