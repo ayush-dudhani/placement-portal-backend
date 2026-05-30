@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.Set;
 
 @Service
 public class AuthService {
@@ -28,75 +29,83 @@ public class AuthService {
     private RedisTemplate<String, Object> redisTemplate;
 
     public LoginResponse login(LoginRequest request) {
+        String identifier = request.getUsername();
+        if (identifier == null) {
+            throw new RuntimeException("Invalid credentials");
+        }
 
-        User user = userRepository
-                .findByCollegeNameAndUsername(
-                        request.getCollegeName(),
-                        request.getUsername())
-                .orElseThrow(() ->
-                        new RuntimeException("Invalid credentials"));
+        // normalize and detect whether identifier is an email
+        identifier = identifier.trim();
+        boolean usedEmail = identifier.contains("@");
+        if (usedEmail) {
+            identifier = identifier.toLowerCase();
+        }
+
+        // lookup by the appropriate field
+        User user = usedEmail
+                ? userRepository.findByEmail(identifier)
+                .orElseThrow(() -> new RuntimeException("Invalid credentials"))
+                : userRepository.findByUsername(identifier)
+                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
 
         boolean passwordMatches = passwordEncoder.matches(
                 request.getPassword(),
-                user.getPassword());
+                user.getPasswordHash());
 
         if (!passwordMatches) {
             throw new RuntimeException("Invalid credentials");
         }
 
+        // generate token with subject as username include username/email/role claims
         String token = jwtUtil.generateToken(
                 user.getUsername(),
-                user.getRole()
+                user.getEmail(),
+                user.getRole().name()
         );
 
-        String redisKey = "session:" + user.getId();
+        String jti = jwtUtil.extractJti(token);
+        String redisKey = "session:" + user.getId() + ":" + jti;
 
+        // store token (or metadata) keyed by userId:jti with TTL matching token expiration
         redisTemplate.opsForValue().set(
                 redisKey,
                 token,
-                Duration.ofHours(8)
+                Duration.ofMillis(jwtUtil.getExpirationMillis())
         );
 
-        return LoginResponse.builder()
+        // Build response exposing only the identifier that was supplied for login
+        LoginResponse.LoginResponseBuilder resp = LoginResponse.builder()
                 .token(token)
-                .username(user.getUsername())
-                .role(user.getRole())
-                .collegeName(user.getCollegeName())
-                .build();
+                .role(user.getRole().name());
+
+        if (usedEmail) {
+            resp.email(user.getEmail());
+        } else {
+            resp.username(user.getUsername());
+        }
+
+        return resp.build();
     }
 
     public void signup(SignupRequest request) {
 
-        boolean userExists =
-                userRepository
-                        .existsByCollegeNameAndUsername(
-                                request.getCollegeName(),
-                                request.getUsername());
+        boolean usernameTaken = userRepository.existsByUsername(request.getUsername());
+        boolean emailTaken = userRepository.existsByEmail(request.getEmail());
 
-        if (userExists) {
-            throw new RuntimeException(
-                    "Username already exists"
-            );
+        if (usernameTaken || emailTaken) {
+            throw new RuntimeException("Username or email already exists");
         }
 
         User user = new User();
-
-        user.setCollegeName(
-                request.getCollegeName());
-
-        user.setUsername(
-                request.getUsername());
+        user.setUsername(request.getUsername());
+        // normalize email to lowercase
+        user.setEmail(request.getEmail().trim().toLowerCase());
 
         // default role is STUDENT for all new signups
-        user.setRole(
-                String.valueOf((Role.STUDENT)));
+        user.setRole(Role.STUDENT);
 
-        // important part
-        user.setPassword(
-                passwordEncoder.encode(
-                        request.getPassword()
-                )
-        );
+        // important part: store hashed password in passwordHash
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
 
         userRepository.save(user);
     }
@@ -107,34 +116,36 @@ public class AuthService {
 
         String token = authHeader.substring(7);
 
-        String username =
-                jwtUtil.extractUsername(token);
+        // token subject is username (subject contains username)
+        String usernameFromToken = jwtUtil.extractUsername(token);
+        if (usernameFromToken == null) {
+            throw new RuntimeException("Invalid token subject");
+        }
 
-        User user =
-                userRepository.findByUsername(username)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "User not found"));
+        User user = userRepository.findByUsername(usernameFromToken)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        boolean validOldPassword =
-                passwordEncoder.matches(
-                        request.getOldPassword(),
-                        user.getPassword());
+        boolean validOldPassword = passwordEncoder.matches(
+                request.getOldPassword(),
+                user.getPasswordHash());
 
         if (!validOldPassword) {
             throw new RuntimeException(
                     "Incorrect old password");
         }
 
-        user.setPassword(
-                passwordEncoder.encode(
-                        request.getNewPassword()));
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
 
         userRepository.save(user);
 
-        // Invalidate current session/token
-        redisTemplate.delete(
-                "session:" + user.getId()
-        );
+        // Invalidate all sessions for this user (e.g., after password change)
+        try {
+            Set<String> keys = redisTemplate.keys("session:" + user.getId() + ":*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+        } catch (Exception ex) {
+            // ignore if keys operation is unsupported
+        }
     }
 }
