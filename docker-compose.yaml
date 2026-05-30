@@ -1,16 +1,13 @@
-version: '3.8'
-
 services:
-
   postgres:
-    image: postgres:17
+    image: bitnami/postgresql:latest
     container_name: placement-postgres
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: placementdb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRESQL_DATABASE: placementdb
+      POSTGRESQL_USERNAME: postgres
+      POSTGRESQL_PASSWORD: postgres
 
   redis:
     image: redis:latest
