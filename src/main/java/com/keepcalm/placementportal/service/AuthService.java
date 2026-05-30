@@ -1,6 +1,7 @@
 package com.keepcalm.placementportal.service;
 
 import com.keepcalm.placementportal.entity.User;
+import com.keepcalm.placementportal.enums.Role;
 import com.keepcalm.placementportal.models.auth.ChangePasswordRequest;
 import com.keepcalm.placementportal.models.auth.LoginRequest;
 import com.keepcalm.placementportal.models.auth.LoginResponse;
@@ -86,8 +87,9 @@ public class AuthService {
         user.setUsername(
                 request.getUsername());
 
+        // default role is STUDENT for all new signups
         user.setRole(
-                request.getRole());
+                String.valueOf((Role.STUDENT)));
 
         // important part
         user.setPassword(
