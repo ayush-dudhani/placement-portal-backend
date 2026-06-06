@@ -1,5 +1,6 @@
 package com.keepcalm.placementportal;
 
+import com.keepcalm.placementportal.repository.StudentRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -20,6 +21,11 @@ class PlacementPortalApplicationTests {
 		public UserRepository userRepository() {
 			// return a Mockito mock instance to satisfy injection points in the context
 			return Mockito.mock(UserRepository.class);
+		}
+		@Bean
+		public StudentRepository studentRepository() {
+			// return a Mockito mock instance to satisfy injection points in the context
+			return Mockito.mock(StudentRepository.class);
 		}
 	}
 

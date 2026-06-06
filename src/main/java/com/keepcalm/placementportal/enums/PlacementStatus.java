@@ -6,5 +6,8 @@ public enum PlacementStatus {
     SHORTLISTED,
     SELECTED,
     REJECTED,
-    PLACED
+    PLACED,
+    NOT_PLACED,
+    HIGHER_STUDIES,
+    NOT_INTERESTED
 }
