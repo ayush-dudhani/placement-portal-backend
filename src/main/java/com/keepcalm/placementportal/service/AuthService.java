@@ -1,13 +1,18 @@
 package com.keepcalm.placementportal.service;
 
+import com.keepcalm.placementportal.entity.Student;
 import com.keepcalm.placementportal.entity.User;
+import com.keepcalm.placementportal.enums.PlacementStatus;
 import com.keepcalm.placementportal.enums.Role;
 import com.keepcalm.placementportal.models.auth.ChangePasswordRequest;
 import com.keepcalm.placementportal.models.auth.LoginRequest;
 import com.keepcalm.placementportal.models.auth.LoginResponse;
 import com.keepcalm.placementportal.models.auth.SignupRequest;
+import com.keepcalm.placementportal.repository.StudentRepository;
 import com.keepcalm.placementportal.repository.UserRepository;
 import com.keepcalm.placementportal.util.JwtUtil;
+import jakarta.transaction.TransactionScoped;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,12 +27,15 @@ public class AuthService {
     @Autowired
     private UserRepository userRepository;
     @Autowired
+    private StudentRepository studentRepository;
+    @Autowired
     private PasswordEncoder passwordEncoder;
     @Autowired
     private JwtUtil jwtUtil;
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
 
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         String identifier = request.getUsername();
         if (identifier == null) {
@@ -87,6 +95,7 @@ public class AuthService {
         return resp.build();
     }
 
+    @Transactional
     public void signup(SignupRequest request) {
 
         boolean usernameTaken = userRepository.existsByUsername(request.getUsername());
@@ -108,6 +117,13 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
 
         userRepository.save(user);
+
+        Student student = Student.builder()
+                .user(user)
+                .placementStatus(PlacementStatus.NOT_PLACED)
+                .build();
+
+        studentRepository.save(student);
     }
 
     public void changePassword(
@@ -147,5 +163,16 @@ public class AuthService {
         } catch (Exception ex) {
             // ignore if keys operation is unsupported
         }
+    }
+
+    public void logout(String token) {
+        String username = jwtUtil.extractUsername(token);
+        String jti = jwtUtil.extractJti(token);
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        redisTemplate.delete(
+                "session:" + user.getId() + ":" + jti);
     }
 }

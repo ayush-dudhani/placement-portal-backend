@@ -49,6 +49,16 @@ CREATE TABLE students (
         REFERENCES users(id)
 );
 
+ALTER TABLE students
+ADD COLUMN tenth_percentage NUMERIC(5,2),
+
+ADD COLUMN twelfth_percentage NUMERIC(5,2),
+
+ADD COLUMN diploma_percentage NUMERIC(5,2),
+
+ADD COLUMN date_of_birth DATE,
+
+
 CREATE TABLE job_applications (
     id BIGSERIAL PRIMARY KEY,
 
