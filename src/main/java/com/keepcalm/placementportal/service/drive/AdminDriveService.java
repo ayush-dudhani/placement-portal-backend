@@ -1,0 +1,84 @@
+package com.keepcalm.placementportal.service.drive;
+import com.keepcalm.placementportal.service.storage.*;
+import com.keepcalm.placementportal.service.audit.*;
+import com.keepcalm.placementportal.service.event.*;
+import com.keepcalm.placementportal.service.analytics.*;
+import com.keepcalm.placementportal.service.communication.*;
+import com.keepcalm.placementportal.service.offer.*;
+import com.keepcalm.placementportal.service.selection.*;
+import com.keepcalm.placementportal.service.application.*;
+import com.keepcalm.placementportal.service.drive.*;
+import com.keepcalm.placementportal.service.company.*;
+import com.keepcalm.placementportal.service.student.*;
+import com.keepcalm.placementportal.service.profile.*;
+import com.keepcalm.placementportal.service.auth.*;
+import com.keepcalm.placementportal.controller.event.*;
+import com.keepcalm.placementportal.controller.analytics.*;
+import com.keepcalm.placementportal.controller.communication.*;
+import com.keepcalm.placementportal.controller.offer.*;
+import com.keepcalm.placementportal.controller.selection.*;
+import com.keepcalm.placementportal.controller.application.*;
+import com.keepcalm.placementportal.controller.drive.*;
+import com.keepcalm.placementportal.controller.company.*;
+import com.keepcalm.placementportal.controller.student.*;
+import com.keepcalm.placementportal.controller.profile.*;
+import com.keepcalm.placementportal.controller.auth.*;
+import com.keepcalm.placementportal.api.PagedResponse;
+import com.keepcalm.placementportal.entity.auth.*;
+import com.keepcalm.placementportal.entity.profile.*;
+import com.keepcalm.placementportal.entity.student.*;
+import com.keepcalm.placementportal.entity.company.*;
+import com.keepcalm.placementportal.entity.drive.*;
+import com.keepcalm.placementportal.entity.application.*;
+import com.keepcalm.placementportal.entity.selection.*;
+import com.keepcalm.placementportal.entity.offer.*;
+import com.keepcalm.placementportal.entity.communication.*;
+import com.keepcalm.placementportal.entity.audit.*;
+import com.keepcalm.placementportal.enums.*;
+import com.keepcalm.placementportal.exception.DomainException;
+import com.keepcalm.placementportal.models.drive.DriveDtos.*;
+import com.keepcalm.placementportal.repository.auth.*;
+import com.keepcalm.placementportal.repository.profile.*;
+import com.keepcalm.placementportal.repository.student.*;
+import com.keepcalm.placementportal.repository.company.*;
+import com.keepcalm.placementportal.repository.drive.*;
+import com.keepcalm.placementportal.repository.application.*;
+import com.keepcalm.placementportal.repository.selection.*;
+import com.keepcalm.placementportal.repository.offer.*;
+import com.keepcalm.placementportal.repository.communication.*;
+import com.keepcalm.placementportal.repository.audit.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.time.Instant;
+import java.util.*;
+@Service @RequiredArgsConstructor
+public class AdminDriveService {
+ private final CampusDriveRepository drives;private final DriveRoleRepository roles;private final EligibilityRuleRepository rules;private final CompanyRepository companies;private final UserRepository users;private final AcademicRecordRepository academics;
+ private final CurrentUserService current;private final DriveDiscoveryService mapper;private final EligibilityEngine engine;private final AuditService audit;
+ @Transactional(readOnly=true) public PagedResponse<DriveDto> list(String query,DriveStatus status,Long companyId,Pageable p){return PagedResponse.from(drives.adminSearch(current.principal().institutionId(),status,companyId,blank(query),p).map(d->mapper.dto(d,false)));}
+ @Transactional(readOnly=true) public DriveDto get(Long id){return mapper.dto(drive(id),true);}
+ @CacheEvict(cacheNames={"drives","analytics"},allEntries=true) @Transactional public DriveDto create(DriveUpsert r){CampusDrive d=new CampusDrive();d.setInstitution(current.getCurrentUser().getInstitution());apply(d,r);drives.save(d);audit.record("DRIVE_CREATED","CampusDrive",d.getId(),Map.of("title",d.getTitle()));return mapper.dto(d,true);}
+ @CacheEvict(cacheNames={"drives","analytics"},allEntries=true) @Transactional public DriveDto update(Long id,DriveUpsert r){CampusDrive d=drive(id);if(d.getStatus()!=DriveStatus.DRAFT&&d.getStatus()!=DriveStatus.PUBLISHED)throw DomainException.conflict("DRIVE_NOT_EDITABLE","Drive cannot be edited in its current status");apply(d,r);audit.record("DRIVE_UPDATED","CampusDrive",id,Map.of());return mapper.dto(d,true);}
+ @CacheEvict(cacheNames={"drives","analytics"},allEntries=true) @Transactional public void archive(Long id){CampusDrive d=drive(id);d.setArchived(true);audit.record("DRIVE_ARCHIVED","CampusDrive",id,Map.of("status",d.getStatus().name()));}
+ @CacheEvict(cacheNames={"drives","analytics"},allEntries=true) @Transactional public DriveDto publish(Long id){CampusDrive d=drive(id);validatePublish(d);d.setStatus(d.getApplicationsOpenAt()!=null&&!Instant.now().isBefore(d.getApplicationsOpenAt())?DriveStatus.APPLICATIONS_OPEN:DriveStatus.PUBLISHED);audit.record("DRIVE_PUBLISHED","CampusDrive",id,Map.of("status",d.getStatus().name()));return mapper.dto(d,true);}
+ @CacheEvict(cacheNames={"drives","analytics"},allEntries=true) @Transactional public DriveDto close(Long id){CampusDrive d=drive(id);if(d.getStatus()!=DriveStatus.PUBLISHED&&d.getStatus()!=DriveStatus.APPLICATIONS_OPEN)throw DomainException.conflict("INVALID_DRIVE_TRANSITION","Applications cannot be closed from "+d.getStatus());d.setStatus(DriveStatus.APPLICATIONS_CLOSED);audit.record("DRIVE_APPLICATIONS_CLOSED","CampusDrive",id,Map.of());return mapper.dto(d,true);}
+ @CacheEvict(cacheNames={"drives","analytics"},allEntries=true) @Transactional public DriveDto cancel(Long id){CampusDrive d=drive(id);if(d.getStatus()==DriveStatus.COMPLETED)throw DomainException.conflict("INVALID_DRIVE_TRANSITION","Completed drive cannot be cancelled");d.setStatus(DriveStatus.CANCELLED);audit.record("DRIVE_CANCELLED","CampusDrive",id,Map.of());return mapper.dto(d,true);}
+ @CacheEvict(cacheNames={"drives","analytics"},allEntries=true) @Transactional public DriveDto cloneDrive(Long id){CampusDrive source=drive(id);CampusDrive copy=new CampusDrive();copy.setInstitution(source.getInstitution());copy.setCompany(source.getCompany());copy.setOwner(current.getCurrentUser());copy.setTitle(source.getTitle()+" (Copy)");copy.setDescription(source.getDescription());copy.setStatus(DriveStatus.DRAFT);drives.save(copy);Map<Long,DriveRole> roleMap=new HashMap<>();for(DriveRole old:roles.findByDriveIdAndActiveTrueOrderByTitleAsc(id)){DriveRole r=new DriveRole();r.setDrive(copy);copyRole(old,r);roles.save(r);roleMap.put(old.getId(),r);}for(EligibilityRule old:rules.findByDriveId(id)){EligibilityRule r=new EligibilityRule();r.setDrive(copy);r.setDriveRole(old.getDriveRole()==null?null:roleMap.get(old.getDriveRole().getId()));r.setRuleType(old.getRuleType());r.setConfiguration(new LinkedHashMap<>(old.getConfiguration()));r.setMandatory(old.isMandatory());r.setActive(old.isActive());rules.save(r);}audit.record("DRIVE_CLONED","CampusDrive",copy.getId(),Map.of("sourceDriveId",id));return mapper.dto(copy,true);}
+ @CacheEvict(cacheNames="drives",allEntries=true) @Transactional public RoleDto addRole(Long driveId,RoleUpsert req){CampusDrive d=drive(driveId);requireConfigurable(d);DriveRole r=new DriveRole();r.setDrive(d);apply(r,req);roles.save(r);audit.record("DRIVE_ROLE_CREATED","DriveRole",r.getId(),Map.of("driveId",driveId));return mapper.roleDto(r);}
+ @CacheEvict(cacheNames="drives",allEntries=true) @Transactional public RoleDto updateRole(Long driveId,Long roleId,RoleUpsert req){CampusDrive d=drive(driveId);requireConfigurable(d);DriveRole r=role(driveId,roleId);apply(r,req);audit.record("DRIVE_ROLE_UPDATED","DriveRole",roleId,Map.of("driveId",driveId));return mapper.roleDto(r);}
+ @CacheEvict(cacheNames="drives",allEntries=true) @Transactional public void deleteRole(Long driveId,Long roleId){requireConfigurable(drive(driveId));DriveRole r=role(driveId,roleId);r.setActive(false);audit.record("DRIVE_ROLE_ARCHIVED","DriveRole",roleId,Map.of("driveId",driveId));}
+ @CacheEvict(cacheNames="drives",allEntries=true) @Transactional public List<RuleDto> updateRules(Long driveId,RulesUpdate request){CampusDrive d=drive(driveId);requireConfigurable(d);rules.deleteAll(rules.findByDriveId(driveId));for(RuleUpsert item:request.rules()){DriveRole role=item.roleId()==null?null:role(driveId,item.roleId());EligibilityRule r=new EligibilityRule();r.setDrive(d);r.setDriveRole(role);r.setRuleType(item.ruleType());r.setConfiguration(new LinkedHashMap<>(item.configuration()));r.setMandatory(item.mandatory());r.setActive(item.active());rules.save(r);}audit.record("ELIGIBILITY_RULES_REPLACED","CampusDrive",driveId,Map.of("count",request.rules().size()));return rules.findByDriveId(driveId).stream().map(mapper::ruleDto).toList();}
+ @Transactional(readOnly=true) public Map<String,Object> preview(Long driveId){CampusDrive d=drive(driveId);List<EligibilityRule> configured=rules.findByDriveId(driveId).stream().filter(EligibilityRule::isActive).toList();long eligible=0,ineligible=0;for(AcademicRecord a:academics.findByStudentInstitutionId(current.principal().institutionId())){if(engine.evaluate(a.getStudent(),a,configured).eligible())eligible++;else ineligible++;}return Map.of("driveId",d.getId(),"eligibleStudents",eligible,"ineligibleStudents",ineligible,"evaluatedStudents",eligible+ineligible);}
+ private void apply(CampusDrive d,DriveUpsert r){Long iid=current.principal().institutionId();d.setCompany(r.companyId()==null?null:companies.findByIdAndInstitutionId(r.companyId(),iid).orElseThrow(()->DomainException.notFound("Company not found")));d.setOwner(r.ownerId()==null?null:users.findById(r.ownerId()).filter(u->u.getInstitution().getId().equals(iid)).orElseThrow(()->DomainException.notFound("Owner not found")));d.setTitle(r.title().trim());d.setDescription(r.description());d.setStartsAt(r.startsAt());d.setEndsAt(r.endsAt());d.setApplicationsOpenAt(r.applicationsOpenAt());d.setApplicationDeadline(r.applicationDeadline());validateDates(d);}
+ private void apply(DriveRole r,RoleUpsert x){r.setTitle(x.title().trim());r.setDescription(x.description());r.setPositions(x.positions());r.setEmploymentType(x.employmentType());r.setLocation(x.location());r.setPackageAmount(x.packageAmount());r.setCurrency(x.currency()==null?"INR":x.currency());r.setApplicationDeadline(x.applicationDeadline());r.setActive(true);}
+ private void copyRole(DriveRole a,DriveRole b){b.setTitle(a.getTitle());b.setDescription(a.getDescription());b.setPositions(a.getPositions());b.setEmploymentType(a.getEmploymentType());b.setLocation(a.getLocation());b.setPackageAmount(a.getPackageAmount());b.setCurrency(a.getCurrency());b.setActive(true);}
+ private void validateDates(CampusDrive d){if(d.getStartsAt()!=null&&d.getEndsAt()!=null&&!d.getEndsAt().isAfter(d.getStartsAt()))throw DomainException.unprocessable("INVALID_DRIVE_DATES","Drive end must be after start");if(d.getApplicationsOpenAt()!=null&&d.getApplicationDeadline()!=null&&!d.getApplicationDeadline().isAfter(d.getApplicationsOpenAt()))throw DomainException.unprocessable("INVALID_APPLICATION_WINDOW","Application deadline must be after opening time");}
+ private void validatePublish(CampusDrive d){validateDates(d);List<String> missing=new ArrayList<>();if(d.getCompany()==null)missing.add("company");if(d.getOwner()==null)missing.add("owner");if(d.getStartsAt()==null||d.getEndsAt()==null||d.getApplicationsOpenAt()==null||d.getApplicationDeadline()==null)missing.add("dates");if(roles.countByDriveIdAndActiveTrue(d.getId())==0)missing.add("roles");if(rules.countByDriveIdAndActiveTrue(d.getId())==0)missing.add("eligibilityRules");if(!missing.isEmpty())throw DomainException.unprocessable("DRIVE_NOT_PUBLISHABLE","Missing required drive configuration: "+missing);}
+ private void requireConfigurable(CampusDrive d){if(d.getStatus()!=DriveStatus.DRAFT&&d.getStatus()!=DriveStatus.PUBLISHED)throw DomainException.conflict("DRIVE_NOT_EDITABLE","Drive configuration is locked in status "+d.getStatus());}
+ private CampusDrive drive(Long id){return drives.findByIdAndInstitutionId(id,current.principal().institutionId()).orElseThrow(()->DomainException.notFound("Drive not found"));}
+ private DriveRole role(Long driveId,Long roleId){return roles.findByIdAndDriveIdAndActiveTrue(roleId,driveId).orElseThrow(()->DomainException.notFound("Drive role not found"));}
+ private String blank(String s){return s==null||s.isBlank()?null:s.trim();}
+}
