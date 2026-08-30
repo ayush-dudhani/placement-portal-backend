@@ -4,25 +4,30 @@ import com.keepcalm.placementportal.enums.Role;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
-
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_users_institution_username", columnNames = {"institution_id", "username"}),
+        @UniqueConstraint(name = "uk_users_institution_email", columnNames = {"institution_id", "email"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class User extends AuditedEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "institution_id", nullable = false)
+    private Institution institution;
+
+    @Column(nullable = false, length = 100)
     private String username;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, length = 255)
     private String email;
 
     @Column(name = "password_hash", nullable = false)
@@ -33,21 +38,9 @@ public class User {
     private Role role;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean isActive = true;
 
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified;
 }

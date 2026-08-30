@@ -1,36 +1,9 @@
 package com.keepcalm.placementportal;
 
-import com.keepcalm.placementportal.repository.StudentRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 
-import org.mockito.Mockito;
-
-import com.keepcalm.placementportal.repository.UserRepository;
-
-@SpringBootTest(properties = "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration")
+@SpringBootTest
 class PlacementPortalApplicationTests {
-
-	@TestConfiguration
-	static class TestConfig {
-		@Bean
-		@Primary
-		public UserRepository userRepository() {
-			// return a Mockito mock instance to satisfy injection points in the context
-			return Mockito.mock(UserRepository.class);
-		}
-		@Bean
-		public StudentRepository studentRepository() {
-			// return a Mockito mock instance to satisfy injection points in the context
-			return Mockito.mock(StudentRepository.class);
-		}
-	}
-
-	@Test
-	void contextLoads() {
-	}
-
+    @Test void contextLoads() {}
 }
