@@ -6,7 +6,6 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -16,11 +15,15 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Student {
+public class Student extends AuditedEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "institution_id", nullable = false)
+    private Institution institution;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(
@@ -38,7 +41,7 @@ public class Student {
 
     private String mobileNo;
 
-    @Column(unique = true)
+    @Column
     private String rollNumber;
 
     private String branch;
@@ -78,19 +81,4 @@ public class Student {
 
     private String gender;
 
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 }

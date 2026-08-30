@@ -1,0 +1,2 @@
+package com.keepcalm.placementportal.enums;
+public enum ApplicationStatus { APPLIED, UNDER_REVIEW, ELIGIBLE, INELIGIBLE, SHORTLISTED, IN_PROCESS, SELECTED, NOT_SELECTED, OFFER_ACCEPTED, OFFER_DECLINED, WITHDRAWN }

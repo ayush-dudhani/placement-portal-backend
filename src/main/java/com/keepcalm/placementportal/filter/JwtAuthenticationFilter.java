@@ -10,7 +10,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import com.keepcalm.placementportal.entity.User;
+import com.keepcalm.placementportal.repository.UserRepository;
+import com.keepcalm.placementportal.security.PortalPrincipal;
+import com.keepcalm.placementportal.security.AccessSessionStore;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -22,7 +25,8 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private final UserDetailsService userDetailsService;
+    private final UserRepository userRepository;
+    private final AccessSessionStore accessSessions;
 
     @Override
     protected void doFilterInternal(
@@ -40,23 +44,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7);
 
-        String username = jwtUtil.extractUsername(token);
-        String role = jwtUtil.extractRole(token);
-
-        if (username != null &&
-                SecurityContextHolder.getContext().getAuthentication() == null) {
-
-            List<GrantedAuthority> authorities =
-                    List.of(new SimpleGrantedAuthority("ROLE_" + role));
-
-            UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(
-                            username,
-                            null,
-                            authorities
-                    );
-
-            SecurityContextHolder.getContext().setAuthentication(auth);
+        try {
+            if (!jwtUtil.isTokenExpired(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
+                Long userId = jwtUtil.extractUserId(token);
+                User user = userId == null
+                        ? userRepository.findByUsername(jwtUtil.extractUsername(token)).orElse(null)
+                        : userRepository.findById(userId).orElse(null);
+                String jti = jwtUtil.extractJti(token);
+                if (user != null && Boolean.TRUE.equals(user.getIsActive()) && jti != null
+                        && accessSessions.isActive(user.getInstitution().getId(), user.getId(), jti)) {
+                    List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+                    PortalPrincipal principal = new PortalPrincipal(user.getId(), user.getInstitution().getId(), user.getUsername(), user.getRole());
+                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            }
+        } catch (RuntimeException ignored) {
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);

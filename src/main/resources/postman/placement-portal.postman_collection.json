@@ -1,0 +1,230 @@
+{
+  "info": {
+    "_postman_id": "d645ab17-77ec-4aa0-853a-0279c3336c96",
+    "name": "Placement Portal API",
+    "description": "Complete canonical /api/v1 suite. Import the companion environment and use the login requests to capture bearer tokens.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},
+  "event": [{"listen":"prerequest","script":{"type":"text/javascript","exec":["if (!pm.environment.get('idempotencyKey')) { pm.environment.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}')); }"]}}],
+  "variable": [
+    {"key":"baseUrl","value":"http://localhost:8080"},{"key":"institutionCode","value":"DEFAULT"},
+    {"key":"studentUsername","value":"student1"},{"key":"studentEmail","value":"student1@example.com"},{"key":"studentPassword","value":"StrongPass1!"},
+    {"key":"adminUsername","value":"admin1"},{"key":"adminPassword","value":"StrongPass1!"},{"key":"accessToken","value":""},
+    {"key":"studentId","value":"1"},{"key":"documentId","value":"1"},{"key":"companyId","value":"1"},{"key":"contactId","value":"1"},
+    {"key":"questionId","value":"1"},{"key":"driveId","value":"1"},{"key":"roleId","value":"1"},{"key":"applicationId","value":"1"},
+    {"key":"roundId","value":"1"},{"key":"participantId","value":"1"},{"key":"offerId","value":"1"},{"key":"notificationId","value":"1"},{"key":"announcementId","value":"1"}
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {"name":"Register student","request":{"auth":{"type":"noauth"},"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"username\": \"{{studentUsername}}\",\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\",\n  \"institutionCode\": \"{{institutionCode}}\"\n}"},"url":"{{baseUrl}}/api/v1/auth/register"}},
+        {"name":"Login student","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b = pm.response.json();","pm.environment.set('studentAccessToken', b.accessToken);","pm.environment.set('accessToken', b.accessToken);","if (b.user) pm.environment.set('studentUserId', b.user.id);"]}}],"request":{"auth":{"type":"noauth"},"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"username\": \"{{studentUsername}}\",\n  \"password\": \"{{studentPassword}}\",\n  \"institutionCode\": \"{{institutionCode}}\"\n}"},"url":"{{baseUrl}}/api/v1/auth/login"}},
+        {"name":"Login admin","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b = pm.response.json();","pm.environment.set('adminAccessToken', b.accessToken);","pm.environment.set('accessToken', b.accessToken);","if (b.user) pm.environment.set('ownerId', b.user.id);"]}}],"request":{"auth":{"type":"noauth"},"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\",\n  \"institutionCode\": \"{{institutionCode}}\"\n}"},"url":"{{baseUrl}}/api/v1/auth/login"}},
+        {"name":"Refresh","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b = pm.response.json();","pm.environment.set('accessToken', b.accessToken);"]}}],"request":{"auth":{"type":"noauth"},"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/auth/refresh"}},
+        {"name":"Logout","request":{"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/auth/logout"}},
+        {"name":"Forgot password","request":{"auth":{"type":"noauth"},"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"email\":\"{{studentEmail}}\",\"institutionCode\":\"{{institutionCode}}\"}"},"url":"{{baseUrl}}/api/v1/auth/forgot-password"}},
+        {"name":"Reset password","request":{"auth":{"type":"noauth"},"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"token\":\"{{resetToken}}\",\"newPassword\":\"{{studentPassword}}\"}"},"url":"{{baseUrl}}/api/v1/auth/reset-password"}},
+        {"name":"Verify email","request":{"auth":{"type":"noauth"},"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"token\":\"{{verificationToken}}\"}"},"url":"{{baseUrl}}/api/v1/auth/verify-email"}},
+        {"name":"Session","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/auth/session"}},
+        {"name":"Use student token","event":[{"listen":"prerequest","script":{"type":"text/javascript","exec":["pm.environment.set('accessToken', pm.environment.get('studentAccessToken'));"]}}],"request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/auth/session"}},
+        {"name":"Use admin token","event":[{"listen":"prerequest","script":{"type":"text/javascript","exec":["pm.environment.set('accessToken', pm.environment.get('adminAccessToken'));"]}}],"request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/auth/session"}}
+      ]
+    },
+    {
+      "name": "Current User",
+      "item": [
+        {"name":"Get me","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/me"}},
+        {"name":"Update me","request":{"method":"PATCH","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"username\":\"{{studentUsername}}\",\"email\":\"{{studentEmail}}\"}"},"url":"{{baseUrl}}/api/v1/me"}},
+        {"name":"Change password","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"oldPassword\":\"{{studentPassword}}\",\"newPassword\":\"{{studentPassword}}\"}"},"url":"{{baseUrl}}/api/v1/me/password"}}
+      ]
+    },
+    {
+      "name": "Student Profile",
+      "item": [
+        {"name":"Get profile","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/profile"}},
+        {"name":"Update profile","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json(); if(b.id) pm.environment.set('studentId',b.id);"]}}],"request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"firstName\": \"Asha\",\n  \"lastName\": \"Rao\",\n  \"mobileNo\": \"9876543210\",\n  \"rollNumber\": \"CSE-001\",\n  \"dateOfBirth\": \"2003-04-12\",\n  \"gender\": \"FEMALE\",\n  \"linkedinUrl\": \"https://linkedin.com/in/example\",\n  \"githubUrl\": \"https://github.com/example\"\n}"},"url":"{{baseUrl}}/api/v1/students/me/profile"}},
+        {"name":"Profile completion","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/profile/completion"}},
+        {"name":"Student dashboard","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/dashboard"}},
+        {"name":"Eligibility summary","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/eligibility-summary"}}
+      ]
+    },
+    {
+      "name": "Academics and Skills",
+      "item": [
+        {"name":"Get academics","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/academics"}},
+        {"name":"Update academics","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"cgpa\": 8.6,\n  \"tenthPercentage\": 91,\n  \"twelfthPercentage\": 88,\n  \"diplomaPercentage\": null,\n  \"activeBacklogs\": 0,\n  \"branch\": \"CSE\",\n  \"graduationYear\": 2027\n}"},"url":"{{baseUrl}}/api/v1/students/me/academics"}},
+        {"name":"Get skills","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/skills"}},
+        {"name":"Update skills","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"skills\":[\"Java\",\"Spring Boot\",\"PostgreSQL\",\"React\"]}"},"url":"{{baseUrl}}/api/v1/students/me/skills"}}
+      ]
+    },
+    {
+      "name": "Documents",
+      "item": [
+        {"name":"List documents","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/documents"}},
+        {"name":"Upload document","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json(); if(b.id) pm.environment.set('documentId',b.id);"]}}],"request":{"method":"POST","header":[],"body":{"mode":"formdata","formdata":[{"key":"documentType","value":"RESUME","type":"text"},{"key":"file","type":"file","src":[]}]},"url":"{{baseUrl}}/api/v1/students/me/documents"}},
+        {"name":"Get document","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/documents/{{documentId}}"}},
+        {"name":"Delete document","request":{"method":"DELETE","header":[],"url":"{{baseUrl}}/api/v1/students/me/documents/{{documentId}}"}},
+        {"name":"Set primary resume","request":{"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/students/me/documents/{{documentId}}/set-primary"}}
+      ]
+    },
+    {
+      "name": "Companies and Q&A",
+      "item": [
+        {"name":"List companies","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/companies?page=0&size=20&sort=name,asc&query="}},
+        {"name":"Get company","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/companies/{{companyId}}"}},
+        {"name":"Company outcomes","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/companies/{{companyId}}/outcomes"}},
+        {"name":"Company alumni","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/companies/{{companyId}}/alumni"}},
+        {"name":"Company FAQs","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/companies/{{companyId}}/faqs"}},
+        {"name":"Company questions","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/companies/{{companyId}}/questions?page=0&size=20"}},
+        {"name":"Ask question","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json(); if(b.id) pm.environment.set('questionId',b.id);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"question\":\"What does the technical interview cover?\",\"anonymous\":false}"},"url":"{{baseUrl}}/api/v1/companies/{{companyId}}/questions"}},
+        {"name":"Reply to question","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"body\":\"Please review data structures and Spring fundamentals.\"}"},"url":"{{baseUrl}}/api/v1/companies/{{companyId}}/questions/{{questionId}}/replies"}}
+      ]
+    },
+    {
+      "name": "Drive Discovery and Applications",
+      "item": [
+        {"name":"List drives","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/drives?page=0&size=20&sort=applicationDeadline,asc&query=&companyId={{companyId}}"}},
+        {"name":"Get drive","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/drives/{{driveId}}"}},
+        {"name":"List drive roles","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/drives/{{driveId}}/roles"}},
+        {"name":"Get drive role","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/drives/{{driveId}}/roles/{{roleId}}"}},
+        {"name":"Check eligibility","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/drives/{{driveId}}/roles/{{roleId}}/eligibility"}},
+        {"name":"Apply to role","event":[{"listen":"test","script":{"type":"text/javascript","exec":["if(pm.response.code<300){const b=pm.response.json();if(b.id)pm.environment.set('applicationId',b.id);}"]}}],"request":{"method":"POST","header":[{"key":"Idempotency-Key","value":"apply-{{studentId}}-{{driveId}}-{{roleId}}"}],"url":"{{baseUrl}}/api/v1/drives/{{driveId}}/roles/{{roleId}}/applications"}},
+        {"name":"List my applications","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/applications?page=0&size=20&sort=appliedAt,desc&status=&driveId=&roleId="}},
+        {"name":"Get my application","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/applications/{{applicationId}}"}},
+        {"name":"Application history","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/applications/{{applicationId}}/history"}},
+        {"name":"Withdraw application","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"reason\":\"Accepted another opportunity\"}"},"url":"{{baseUrl}}/api/v1/students/me/applications/{{applicationId}}/withdraw"}}
+      ]
+    },
+    {
+      "name": "Student Events, Notifications and Announcements",
+      "item": [
+        {"name":"Student events","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/events"}},
+        {"name":"Student calendar","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/calendar"}},
+        {"name":"List notifications","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/notifications?page=0&size=20&sort=createdAt,desc"}},
+        {"name":"Unread count","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/notifications/unread-count"}},
+        {"name":"Mark notification read","request":{"method":"PATCH","header":[],"url":"{{baseUrl}}/api/v1/notifications/{{notificationId}}/read"}},
+        {"name":"Mark all notifications read","request":{"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/notifications/read-all"}},
+        {"name":"List announcements","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/announcements?page=0&size=20&sort=publishedAt,desc"}},
+        {"name":"Get announcement","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/announcements/{{announcementId}}"}}
+      ]
+    },
+    {
+      "name": "Admin Dashboard",
+      "item": [
+        {"name":"Dashboard","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/dashboard"}},
+        {"name":"Action items","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/action-items"}},
+        {"name":"Activity","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/activity?page=0&size=20&sort=createdAt,desc"}}
+      ]
+    },
+    {
+      "name": "Admin Companies",
+      "item": [
+        {"name":"Create company","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json();if(b.id)pm.environment.set('companyId',b.id);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"name\": \"Example Technologies\",\n  \"industry\": \"Software\",\n  \"description\": \"Product engineering company\",\n  \"websiteUrl\": \"https://example.com\",\n  \"logoUrl\": \"https://example.com/logo.png\"\n}"},"url":"{{baseUrl}}/api/v1/admin/companies"}},
+        {"name":"Update company","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"name\":\"Example Technologies\",\"industry\":\"Software\",\"description\":\"Updated profile\",\"websiteUrl\":\"https://example.com\",\"logoUrl\":\"https://example.com/logo.png\"}"},"url":"{{baseUrl}}/api/v1/admin/companies/{{companyId}}"}},
+        {"name":"Archive company","request":{"method":"DELETE","header":[],"url":"{{baseUrl}}/api/v1/admin/companies/{{companyId}}"}},
+        {"name":"Add company contact","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json();if(b.id)pm.environment.set('contactId',b.id);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"name\":\"Recruiter One\",\"email\":\"recruiter@example.com\",\"phone\":\"9876543210\",\"designation\":\"Campus Recruiter\",\"primary\":true}"},"url":"{{baseUrl}}/api/v1/admin/companies/{{companyId}}/contacts"}},
+        {"name":"Update company contact","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"name\":\"Recruiter One\",\"email\":\"recruiter@example.com\",\"phone\":\"9876543210\",\"designation\":\"Lead Recruiter\",\"primary\":true}"},"url":"{{baseUrl}}/api/v1/admin/companies/{{companyId}}/contacts/{{contactId}}"}}
+      ]
+    },
+    {
+      "name": "Admin Drives",
+      "item": [
+        {"name":"List admin drives","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/drives?page=0&size=20&sort=createdAt,desc&query=&status=&companyId="}},
+        {"name":"Create drive","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json();if(b.id)pm.environment.set('driveId',b.id);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"companyId\": {{companyId}},\n  \"title\": \"Graduate Hiring 2030\",\n  \"description\": \"Campus recruitment drive\",\n  \"startsAt\": \"2030-02-10T09:00:00Z\",\n  \"endsAt\": \"2030-02-10T17:00:00Z\",\n  \"applicationsOpenAt\": \"2030-01-01T00:00:00Z\",\n  \"applicationDeadline\": \"2030-01-31T23:59:59Z\",\n  \"ownerId\": {{ownerId}}\n}"},"url":"{{baseUrl}}/api/v1/admin/drives"}},
+        {"name":"Get admin drive","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}"}},
+        {"name":"Update drive","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"companyId\":{{companyId}},\"title\":\"Graduate Hiring 2030\",\"description\":\"Updated drive\",\"startsAt\":\"2030-02-10T09:00:00Z\",\"endsAt\":\"2030-02-10T17:00:00Z\",\"applicationsOpenAt\":\"2030-01-01T00:00:00Z\",\"applicationDeadline\":\"2030-01-31T23:59:59Z\",\"ownerId\":{{ownerId}}}"},"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}"}},
+        {"name":"Archive drive","request":{"method":"DELETE","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}"}},
+        {"name":"Publish drive","request":{"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/publish"}},
+        {"name":"Close applications","request":{"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/close-applications"}},
+        {"name":"Cancel drive","request":{"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/cancel"}},
+        {"name":"Clone drive","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json();if(b.id)pm.environment.set('clonedDriveId',b.id);"]}}],"request":{"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/clone"}},
+        {"name":"Add role","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json();if(b.id)pm.environment.set('roleId',b.id);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"title\":\"Software Engineer\",\"description\":\"Backend role\",\"positions\":10,\"employmentType\":\"FULL_TIME\",\"location\":\"Pune\",\"packageAmount\":1200000,\"currency\":\"INR\",\"applicationDeadline\":\"2030-01-31T23:59:59Z\"}"},"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/roles"}},
+        {"name":"Update role","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"title\":\"Software Engineer\",\"description\":\"Backend and platform role\",\"positions\":12,\"employmentType\":\"FULL_TIME\",\"location\":\"Pune\",\"packageAmount\":1250000,\"currency\":\"INR\",\"applicationDeadline\":\"2030-01-31T23:59:59Z\"}"},"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/roles/{{roleId}}"}},
+        {"name":"Archive role","request":{"method":"DELETE","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/roles/{{roleId}}"}},
+        {"name":"Replace eligibility rules","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"rules\": [\n    {\"roleId\":{{roleId}},\"ruleType\":\"MIN_CGPA\",\"configuration\":{\"value\":8.0},\"mandatory\":true,\"active\":true},\n    {\"roleId\":{{roleId}},\"ruleType\":\"MAX_ACTIVE_BACKLOGS\",\"configuration\":{\"value\":0},\"mandatory\":true,\"active\":true},\n    {\"roleId\":{{roleId}},\"ruleType\":\"ALLOWED_BRANCHES\",\"configuration\":{\"values\":[\"CSE\",\"IT\"]},\"mandatory\":true,\"active\":true}\n  ]\n}"},"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/eligibility-rules"}},
+        {"name":"Eligibility preview","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/eligibility-preview"}},
+        {"name":"List drive applicants","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/applicants?page=0&size=20&status=&query="}},
+        {"name":"Export drive applicants","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/applicants/export?status=&query="}}
+      ]
+    },
+    {
+      "name": "Admin Applications",
+      "item": [
+        {"name":"List applications","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/applications?page=0&size=20&sort=appliedAt,desc&query=&status=&driveId=&roleId="}},
+        {"name":"Get application","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/applications/{{applicationId}}"}},
+        {"name":"Update status","request":{"method":"PATCH","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"status\":\"SHORTLISTED\",\"reason\":\"Meets screening criteria\"}"},"url":"{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/status"}},
+        {"name":"Bulk eligibility check","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"applicationIds\":[{{applicationId}}]}"},"url":"{{baseUrl}}/api/v1/admin/applications/bulk-eligibility-check"}},
+        {"name":"Bulk status update","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"applicationIds\":[{{applicationId}}],\"status\":\"SHORTLISTED\",\"reason\":\"Bulk shortlist\"}"},"url":"{{baseUrl}}/api/v1/admin/applications/bulk-status-update"}},
+        {"name":"Import results CSV","request":{"method":"POST","header":[{"key":"Idempotency-Key","value":"{{idempotencyKey}}"}],"body":{"mode":"formdata","formdata":[{"key":"file","type":"file","src":[]}]},"url":"{{baseUrl}}/api/v1/admin/applications/import-results"}}
+      ]
+    },
+    {
+      "name": "Selection Rounds",
+      "item": [
+        {"name":"List rounds","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/rounds"}},
+        {"name":"Create round","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json();if(b.id)pm.environment.set('roundId',b.id);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"name\":\"Technical Assessment\",\"roundType\":\"ASSESSMENT\",\"roundOrder\":1,\"startsAt\":\"2030-02-10T10:00:00Z\",\"endsAt\":\"2030-02-10T11:00:00Z\",\"location\":\"Lab 1\"}"},"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/rounds"}},
+        {"name":"Update round","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"name\":\"Technical Assessment\",\"roundType\":\"ASSESSMENT\",\"roundOrder\":1,\"startsAt\":\"2030-02-10T10:00:00Z\",\"endsAt\":\"2030-02-10T11:30:00Z\",\"location\":\"Lab 2\"}"},"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/rounds/{{roundId}}"}},
+        {"name":"Archive round","request":{"method":"DELETE","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/rounds/{{roundId}}"}},
+        {"name":"Round participants","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json();if(b.length)pm.environment.set('participantId',b[0].id);"]}}],"request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/rounds/{{roundId}}/participants"}},
+        {"name":"Save round results","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"results\":[{\"participantId\":{{participantId}},\"status\":\"QUALIFIED\",\"score\":85,\"notes\":\"Passed\",\"attendanceStatus\":\"PRESENT\"}]}"},"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/rounds/{{roundId}}/results"}},
+        {"name":"Publish round results","request":{"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/admin/drives/{{driveId}}/rounds/{{roundId}}/publish-results"}}
+      ]
+    },
+    {
+      "name": "Offers",
+      "item": [
+        {"name":"List my offers","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/offers?page=0&size=20&sort=offeredAt,desc"}},
+        {"name":"Get my offer","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/students/me/offers/{{offerId}}"}},
+        {"name":"Accept offer","request":{"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/students/me/offers/{{offerId}}/accept"}},
+        {"name":"Decline offer","request":{"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/students/me/offers/{{offerId}}/decline"}},
+        {"name":"List admin offers","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/offers?page=0&size=20&status=&companyId="}},
+        {"name":"Create offer","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json();if(b.id)pm.environment.set('offerId',b.id);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"applicationId\":{{applicationId}},\"packageAmount\":1200000,\"currency\":\"INR\",\"letterObjectKey\":null,\"verified\":true,\"responseDeadline\":\"2030-02-20T23:59:59Z\",\"release\":true}"},"url":"{{baseUrl}}/api/v1/admin/offers"}},
+        {"name":"Update offer","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"applicationId\":{{applicationId}},\"packageAmount\":1250000,\"currency\":\"INR\",\"letterObjectKey\":null,\"verified\":true,\"responseDeadline\":\"2030-02-20T23:59:59Z\",\"release\":true}"},"url":"{{baseUrl}}/api/v1/admin/offers/{{offerId}}"}},
+        {"name":"Import offers CSV","request":{"method":"POST","header":[{"key":"Idempotency-Key","value":"{{idempotencyKey}}"}],"body":{"mode":"formdata","formdata":[{"key":"file","type":"file","src":[]}]},"url":"{{baseUrl}}/api/v1/admin/offers/import"}}
+      ]
+    },
+    {
+      "name": "Admin Students",
+      "item": [
+        {"name":"List students","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/students?page=0&size=20&sort=id,asc&query=&branch=CSE&graduationYear=2027&status="}},
+        {"name":"Get student","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/students/{{studentId}}"}},
+        {"name":"Update placement status","request":{"method":"PATCH","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"status\":\"HIGHER_STUDIES\"}"},"url":"{{baseUrl}}/api/v1/admin/students/{{studentId}}/placement-status"}},
+        {"name":"Student applications","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/students/{{studentId}}/applications"}},
+        {"name":"Student documents","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/students/{{studentId}}/documents"}},
+        {"name":"Verify document","request":{"method":"PATCH","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"status\":\"VERIFIED\",\"note\":\"Checked against original\"}"},"url":"{{baseUrl}}/api/v1/admin/students/{{studentId}}/documents/{{documentId}}/verification"}},
+        {"name":"Export students","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/students/export?query=&branch=CSE&graduationYear=2027&status="}},
+        {"name":"Import students CSV","request":{"method":"POST","header":[{"key":"Idempotency-Key","value":"{{idempotencyKey}}"}],"body":{"mode":"formdata","formdata":[{"key":"file","type":"file","src":[]}]},"url":"{{baseUrl}}/api/v1/admin/students/import"}}
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {"name":"Overview","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/analytics/overview"}},
+        {"name":"Application analytics","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/analytics/applications"}},
+        {"name":"Placements by branch","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/analytics/placements-by-branch"}},
+        {"name":"Package analytics","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/analytics/packages"}},
+        {"name":"Company performance","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/analytics/company-performance"}},
+        {"name":"Export analytics","request":{"method":"GET","header":[],"url":"{{baseUrl}}/api/v1/admin/analytics/export"}}
+      ]
+    },
+    {
+      "name": "Admin Announcements",
+      "item": [
+        {"name":"Create announcement","event":[{"listen":"test","script":{"type":"text/javascript","exec":["const b=pm.response.json();if(b.id)pm.environment.set('announcementId',b.id);"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"title\":\"Placement briefing\",\"content\":\"Briefing starts at 10:00 UTC.\",\"audienceRole\":\"STUDENT\",\"expiresAt\":\"2030-12-31T23:59:59Z\"}"},"url":"{{baseUrl}}/api/v1/admin/announcements"}},
+        {"name":"Update announcement","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"title\":\"Placement briefing updated\",\"content\":\"Briefing starts at 11:00 UTC.\",\"audienceRole\":\"STUDENT\",\"expiresAt\":\"2030-12-31T23:59:59Z\"}"},"url":"{{baseUrl}}/api/v1/admin/announcements/{{announcementId}}"}},
+        {"name":"Archive announcement","request":{"method":"DELETE","header":[],"url":"{{baseUrl}}/api/v1/admin/announcements/{{announcementId}}"}},
+        {"name":"Publish announcement","request":{"method":"POST","header":[],"url":"{{baseUrl}}/api/v1/admin/announcements/{{announcementId}}/publish"}}
+      ]
+    },
+    {
+      "name": "Operational",
+      "item": [
+        {"name":"Health","request":{"auth":{"type":"noauth"},"method":"GET","header":[],"url":"{{baseUrl}}/actuator/health"}},
+        {"name":"Info","request":{"auth":{"type":"noauth"},"method":"GET","header":[],"url":"{{baseUrl}}/actuator/info"}},
+        {"name":"OpenAPI JSON","request":{"auth":{"type":"noauth"},"method":"GET","header":[],"url":"{{baseUrl}}/v3/api-docs"}}
+      ]
+    }
+  ]
+}
